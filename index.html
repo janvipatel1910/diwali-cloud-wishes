@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diwali Cloud Wishes</title>
+<meta name="description" content="Type your name and get a one-of-a-kind rangoli, generated from your name and deployed on AWS.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yatra+One&family=IBM+Plex+Mono:wght@400;600&family=Figtree:wght@400;600&display=swap">
+<style>
+/* Layout: a single "console" column on a Diwali night sky.
+   Stage 1 form → Stage 2 live AWS pipeline → Stage 3 name-generated rangoli + data card */
+:root{
+  --night:#110c1d; --panel:#1b1430; --panel-2:#150f26; --line:#3a2d57;
+  --text:#f6ecd9; --muted:#b3a5c9;
+  --marigold:#ffb43a; --flame:#ff7a2f; --rose:#ff5d8f; --ok:#7fe0a6; --sky:#5ec8f2;
+  --f-display:"Yatra One",Georgia,serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--night);color:var(--text);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background-image:radial-gradient(ellipse at 50% -10%,#2c1d4a 0%,transparent 60%);overflow-x:hidden}
+#sky{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+#rain{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}
+.wrap{position:relative;z-index:1;max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.brand{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--f-mono);font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.brand b{color:var(--marigold);font-weight:600}
+.motion{align-self:center;font-family:var(--f-mono);font-size:13px;padding:9px 16px;border-radius:999px;border:1px solid var(--marigold);color:var(--marigold);background:var(--panel)}
+.console{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 24px 70px -24px #000c}
+.bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);font-family:var(--f-mono);font-size:12px;color:var(--muted);min-width:0}
+.bar span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dots{display:flex;gap:6px;flex:none}.dots i{width:10px;height:10px;border-radius:50%;background:var(--line)}
+.dots i:first-child{background:var(--flame)}.dots i:nth-child(2){background:var(--marigold)}
+.body{padding:22px 20px 24px;display:flex;flex-direction:column;gap:18px}
+.boot{font-family:var(--f-mono);font-size:12.5px;line-height:1.7;margin:0;color:var(--muted);white-space:pre-wrap}
+.boot .c{color:var(--ok)}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(1.9rem,6.5vw,2.7rem);line-height:1.12;margin:0;color:var(--marigold);text-wrap:balance}
+.lead{margin:0;color:var(--muted)}
+label{display:block;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+input{font-family:var(--f-mono);font-size:16px;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:12px 14px;width:100%}
+input:focus{outline:2px solid var(--marigold);outline-offset:1px;border-color:transparent}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.notice{font-size:13px;color:var(--muted);margin:0;border-left:2px solid var(--line);padding-left:10px}
+.err{color:var(--flame);font-size:14px;margin:0}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:10px;padding:13px 18px;border:1px solid var(--line);background:transparent;color:var(--text)}
+button.primary{background:linear-gradient(180deg,var(--marigold),var(--flame));color:#2a1405;border:none;font-family:var(--f-mono)}
+button:focus-visible{outline:2px solid var(--marigold);outline-offset:3px}
+button:hover{filter:brightness(1.08)}
+button:disabled{opacity:.6;cursor:wait}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row button{flex:1 1 160px}
+
+/* pipeline */
+.pipe{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px 8px}
+.pipe svg{width:100%;height:auto;display:block}
+.node rect{fill:var(--panel);stroke:var(--line);stroke-width:1.5;transition:stroke .3s,fill .3s}
+.node text{fill:var(--muted);font-family:var(--f-mono);font-size:9px;transition:fill .3s}
+.node.on rect{stroke:var(--marigold);fill:#2a1d12}
+.node.on text{fill:var(--text)}
+.node.fail rect{stroke:var(--flame)}
+.wire{stroke:var(--line);stroke-width:2;stroke-dasharray:4 4}
+.log{font-family:var(--f-mono);font-size:13px;line-height:1.7;margin:0;white-space:pre-wrap;word-break:break-word;min-height:11em}
+.c{color:var(--ok)}.m{color:var(--muted)}.y{color:var(--marigold)}.r{color:var(--flame)}
+
+/* result */
+.status{display:inline-flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:12px;color:var(--ok);letter-spacing:.06em;text-transform:uppercase}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.stage{position:relative;display:flex;justify-content:center}
+#rangoli{width:100%;max-width:420px;aspect-ratio:1;height:auto;display:block;cursor:pointer}
+.tap{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--f-mono);font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;pointer-events:none}
+.hello{font-family:var(--f-display);font-weight:400;font-size:clamp(2.1rem,8.5vw,3.2rem);line-height:1.05;margin:0;text-align:center;text-wrap:balance}
+.hello em{font-style:normal;color:var(--marigold)}
+.sub{font-family:var(--f-display);font-size:clamp(1.15rem,4.3vw,1.5rem);margin:0;color:var(--flame);text-align:center}
+.k{font-family:var(--f-mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-family:var(--f-mono);font-size:13px;margin:0}
+.meta dt{color:var(--muted)}.meta dd{margin:0;font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere}
+.sw{display:inline-flex;gap:4px;vertical-align:middle}.sw i{width:14px;height:14px;border-radius:3px;display:inline-block}
+.json{font-family:var(--f-mono);font-size:12.5px;line-height:1.65;margin:0;overflow-x:auto;white-space:pre}
+.jsnote{margin:0;font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+.json .key{color:var(--sky)}.json .str{color:var(--marigold)}.json .num{color:var(--rose)}.json .lit{color:var(--ok)}
+.sweet{display:grid;grid-template-columns:140px minmax(0,1fr);gap:16px;align-items:center}
+.sweet canvas{width:140px;height:140px;display:block;background:radial-gradient(circle at 50% 45%,#2c1f45,var(--panel) 70%);border-radius:50%;border:1px solid var(--line)}
+@media (max-width:420px){.sweet{grid-template-columns:1fr;justify-items:center;text-align:center}}
+.sweet h3{font-family:var(--f-display);font-weight:400;font-size:1.6rem;line-height:1.1;margin:0;color:var(--marigold)}
+.sweet h3 span{font-size:1.1rem;color:var(--muted);margin-left:6px}
+.sweet p{margin:4px 0 0;font-size:14px}
+.sweet .meta2{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-top:8px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.cityrow{display:grid;grid-template-columns:minmax(0,7.5em) 1fr 2.5em;gap:10px;align-items:center;font-family:var(--f-mono);font-size:13px}
+.cityrow .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cityrow .track{height:8px;background:var(--panel);border-radius:4px;overflow:hidden}
+.cityrow .fill{display:block;height:100%;background:var(--marigold);border-radius:4px}
+.cityrow .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.big{font-family:var(--f-mono);font-size:1.6rem;font-weight:600;font-variant-numeric:tabular-nums}
+.msg{margin:0;text-align:center;max-width:52ch;align-self:center}
+.from{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin:0;text-align:center}
+.toast{font-family:var(--f-mono);font-size:13px;color:var(--ok);min-height:1.2em;margin:0}
+.copybox{font-family:var(--f-mono);font-size:12px;word-break:break-all;color:var(--muted)}
+footer{text-align:center;font-family:var(--f-mono);font-size:11px;color:var(--muted);letter-spacing:.05em}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<canvas id="rain" aria-hidden="true"></canvas>
+<div class="wrap">
+  <div class="brand"><span><b>diwali-cloud-wishes</b> · v2.0</span><span>aws · serverless · data</span></div>
+  <button type="button" id="motion" class="motion" hidden>⏸ Pause animations</button>
+
+  <!-- Stage 1: form -->
+  <section class="console" id="s-form">
+    <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span>diwali-os ~ wishes-console</span></div>
+    <form class="body" id="form" novalidate>
+      <pre class="boot" id="boot"><span class="c">$ diwali init --personal</span>
+→ Diyas online: 108 · Region: everywhere · Status: ready</pre>
+      <h1>Your name will become a rangoli 🪔</h1>
+      <p class="lead">Type your name and a one-of-a-kind rangoli will be generated from it, then your Diwali and New Year wishes will be deployed through the cloud. No two names make the same pattern.</p>
+      <div class="fields">
+        <div>
+          <label for="name">Your name</label>
+          <input id="name" maxlength="40" autocomplete="given-name" placeholder="e.g. Priya" required>
+        </div>
+        <div>
+          <label for="city">Your city (optional)</label>
+          <input id="city" maxlength="30" autocomplete="address-level2" placeholder="e.g. London">
+        </div>
+      </div>
+      <p class="notice">Your name and city are saved so the sender can see who received wishes. Nothing else is collected.</p>
+      <p class="err" id="err" hidden></p>
+      <button type="submit" class="primary" id="go">▶ Generate my rangoli</button>
+    </form>
+  </section>
+
+  <!-- Stage 2: pipeline -->
+  <section class="console" id="s-log" hidden>
+    <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span id="logTitle">deploying…</span></div>
+    <div class="body">
+      <div class="pipe" aria-hidden="true">
+        <svg viewBox="0 0 360 96">
+          <line class="wire" x1="45" y1="48" x2="315" y2="48"/>
+          <g class="node" id="n0"><rect x="8" y="26" width="74" height="44" rx="8"/><text x="45" y="45" text-anchor="middle">S3 +</text><text x="45" y="57" text-anchor="middle">CloudFront</text></g>
+          <g class="node" id="n1"><rect x="98" y="26" width="74" height="44" rx="8"/><text x="135" y="45" text-anchor="middle">API</text><text x="135" y="57" text-anchor="middle">Gateway</text></g>
+          <g class="node" id="n2"><rect x="188" y="26" width="74" height="44" rx="8"/><text x="225" y="45" text-anchor="middle">Lambda</text><text x="225" y="57" text-anchor="middle">python3.12</text></g>
+          <g class="node" id="n3"><rect x="278" y="26" width="74" height="44" rx="8"/><text x="315" y="45" text-anchor="middle">DynamoDB</text><text x="315" y="57" text-anchor="middle">wishes</text></g>
+          <g id="packet"><circle cx="0" cy="0" r="7" fill="#ff7a2f"/><path d="M0 -14 C4 -8 4 -5 0 -3 C-4 -5 -4 -8 0 -14Z" fill="#ffd166"/></g>
+        </svg>
+      </div>
+      <pre class="log" id="log" aria-live="polite"></pre>
+    </div>
+  </section>
+
+  <!-- Stage 3: result -->
+  <section class="console" id="s-card" hidden>
+    <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span id="cardBar">wishes · live</span></div>
+    <div class="body">
+      <span class="status">Deployment successful · 0 errors</span>
+      <div class="stage">
+        <canvas id="rangoli" width="840" height="840" aria-label="A rangoli pattern generated from your name"></canvas>
+        <div class="tap">tap the diya ✨</div>
+      </div>
+      <h2 class="hello">Happy Diwali, <em id="who">friend</em>!</h2>
+      <p class="sub">and a bright, prosperous New Year</p>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="k">Rangoli data card</div>
+          <dl class="meta">
+            <dt>seed</dt><dd id="mSeed">–</dd>
+            <dt>symmetry</dt><dd id="mSym">–</dd>
+            <dt>layers</dt><dd id="mLayers">–</dd>
+            <dt>palette</dt><dd><span class="sw" id="mPal"></span></dd>
+            <dt>unique</dt><dd>1 of 4,294,967,296</dd>
+          </dl>
+        </div>
+        <div class="card">
+          <div class="k">wish.json</div>
+          <pre class="json" id="json"></pre>
+          <p class="jsnote">Your wish, written the way computers talk 🤖</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="k">Your Diwali sweet · assigned by your hash</div>
+        <div class="sweet">
+          <canvas id="sweetCv" width="280" height="280" aria-hidden="true"></canvas>
+          <div>
+            <h3 id="sweetName">Laddoo</h3>
+            <p id="sweetLine"></p>
+            <div class="meta2" id="sweetMeta"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="live" hidden>
+        <div class="k">Live data · DynamoDB</div>
+        <div><span class="big" id="total">0</span> <span class="m">rangolis generated so far</span></div>
+        <div id="cities"></div>
+      </div>
+
+      <p class="msg">May your days shine like diyas, your worries be deleted for good, and your success scale up automatically. Wishing you and your family a very Happy Diwali and a joyful New Year!</p>
+      <p class="from">— with love, Janvi 🪔</p>
+
+      <div class="row">
+        <button type="button" class="primary" id="share">Send to a friend</button>
+        <button type="button" id="more">Serve more sweets 🍬</button>
+        <button type="button" id="again">Make another rangoli</button>
+      </div>
+      <p class="toast" id="toast" aria-live="polite"></p>
+      <div class="copybox" id="copybox" hidden></div>
+    </div>
+  </section>
+
+  <footer>Built by Janvi Patel · S3 · CloudFront · API Gateway · Lambda · DynamoDB · Python</footer>
+</div>
+
+<script>
+/* =========================================================
+   CONFIG: paste your API Gateway invoke URL here (no trailing slash)
+   e.g. "https://abc123.execute-api.eu-west-2.amazonaws.com"
+   Leave empty to run in demo mode (nothing is saved).
+   ========================================================= */
+const API_URL = "https://cgses72oj8.execute-api.eu-west-2.amazonaws.com";
+
+(function(){
+  const $ = id => document.getElementById(id);
+  // Animations play by default. Viewers whose device asks for reduced motion
+  // get a button to pause them.
+  let reduce = false;
+  let lastName = null;
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) $("motion").hidden = false;
+  $("motion").addEventListener("click", () => {
+    reduce = !reduce;
+    $("motion").textContent = reduce ? "▶ Play animations" : "⏸ Pause animations";
+    $("toast").textContent = "";
+    if(reduce){
+      fireworks = false; falling = []; sparks = [];
+      cancelAnimationFrame(sweetLoop);
+      if(!$("s-card").hidden && lastName){ startRangoli(lastName); startSweetAnim(currentSweet); }
+    } else {
+      requestAnimationFrame(skyFrame);
+      if(!$("s-card").hidden && lastName){
+        startRangoli(lastName); startSweetAnim(currentSweet);
+        fireworks = true; rainSweets(currentSweet, 30);
+      }
+    }
+  });
+  const sleep = ms => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+
+  /* ---------- night sky + fireworks ---------- */
+  const sky = $("sky"), sx = sky.getContext("2d");
+  let W, H, stars = [], sparks = [], fireworks = false, t = 0;
+  function size(){ const d = devicePixelRatio || 1; W = innerWidth; H = innerHeight;
+    sky.width = W*d; sky.height = H*d; sx.setTransform(d,0,0,d,0,0);
+    stars = Array.from({length: Math.round(W*H/9000)}, () => ({x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.4+.3, p:Math.random()*6})); }
+  size(); addEventListener("resize", size);
+  const FW = ["#ffb43a","#ff7a2f","#ffe08a","#ff5d8f","#7fe0a6","#5ec8f2"];
+  function burst(x, y, n){ const c = FW[Math.floor(Math.random()*FW.length)];
+    for(let i=0;i<(n||60);i++){ const a = Math.random()*Math.PI*2, s = Math.random()*3+1;
+      sparks.push({x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:1, c}); } }
+  /* ---------- Diwali sweets ---------- */
+  const SWEETS = [
+    {id:"laddoo",   name:"Laddoo",       gu:"લાડુ",        line:"Round, golden and always the first to disappear."},
+    {id:"jalebi",   name:"Jalebi",       gu:"જલેબી",       line:"Twisty like a nested loop, but always sweet."},
+    {id:"jamun",    name:"Gulab Jamun",  gu:"ગુલાબ જાંબુ",  line:"Soaked in syrup, like a cache full of happiness."},
+    {id:"peda",     name:"Peda",         gu:"પેંડા",        line:"Small, classic and never out of stock."},
+    {id:"sheera",   name:"Sheera",       gu:"શીરો",        line:"Warm, comforting and best served fresh."},
+    {id:"katli",    name:"Kaju Katli",   gu:"કાજુ કતરી",   line:"Diamond-shaped. Definitely the premium tier."},
+    {id:"choco",    name:"Chocolate",    gu:"ચોકલેટ",      line:"The modern upgrade, fully backwards compatible."},
+    {id:"icecream", name:"Ice Cream",    gu:"આઇસક્રીમ",    line:"Cool under pressure, like a well-built server."},
+    {id:"rasgulla", name:"Rasgulla",     gu:"રસગુલ્લા",     line:"Light, fluffy and zero latency."},
+    {id:"barfi",    name:"Barfi",        gu:"બરફી",        line:"Neatly stacked, like well-sorted data."}
+  ];
+  let falling = [];
+
+  function drawSweet(c, id, s){
+    c.lineCap = "round"; c.lineJoin = "round";
+    if(id === "laddoo"){
+      const g = c.createRadialGradient(-s*.3,-s*.3,s*.1,0,0,s); g.addColorStop(0,"#ffd27a"); g.addColorStop(1,"#e8901f");
+      c.fillStyle = g; c.beginPath(); c.arc(0,0,s,0,7); c.fill();
+      c.fillStyle = "#c9711a";
+      [[-.4,-.2],[.3,-.45],[.1,.2],[-.2,.5],[.5,.25],[-.55,.25],[.2,-.05],[-.1,-.55]].forEach(([x,y]) => { c.beginPath(); c.arc(x*s,y*s,s*.08,0,7); c.fill(); });
+    } else if(id === "jalebi"){
+      c.beginPath();
+      for(let a=0;a<=Math.PI*5;a+=0.15){ const r = s*0.08 + s*0.85*a/(Math.PI*5); const x = r*Math.cos(a), y = r*Math.sin(a); a ? c.lineTo(x,y) : c.moveTo(x,y); }
+      c.lineWidth = s*.24; c.strokeStyle = "#f08a14"; c.stroke();
+      c.lineWidth = s*.08; c.strokeStyle = "#ffcf6b"; c.stroke();
+    } else if(id === "jamun"){
+      const g = c.createRadialGradient(-s*.3,-s*.3,s*.1,0,0,s); g.addColorStop(0,"#9a4320"); g.addColorStop(1,"#4a1a0b");
+      c.fillStyle = g; c.beginPath(); c.arc(0,0,s,0,7); c.fill();
+      c.fillStyle = "rgba(255,255,255,.55)"; c.beginPath(); c.ellipse(-s*.35,-s*.4,s*.22,s*.1,-.6,0,7); c.fill();
+    } else if(id === "peda"){
+      c.fillStyle = "#f2d9a6"; c.beginPath(); c.ellipse(0,0,s,s*.8,0,0,7); c.fill();
+      c.lineWidth = s*.08; c.strokeStyle = "#d9b77c"; c.stroke();
+      c.fillStyle = "#e0c08a"; c.beginPath(); c.arc(0,0,s*.35,0,7); c.fill();
+      c.fillStyle = "#7fbf5a"; c.beginPath(); c.arc(0,0,s*.12,0,7); c.fill();
+    } else if(id === "sheera"){
+      c.fillStyle = "#f5c24a"; c.beginPath(); c.ellipse(0,-s*.05,s*.85,s*.55,0,Math.PI,0); c.fill();
+      c.fillStyle = "#c8ced9"; c.beginPath(); c.moveTo(-s,-s*.05); c.lineTo(s,-s*.05); c.quadraticCurveTo(s*.85,s*.85,0,s*.85); c.quadraticCurveTo(-s*.85,s*.85,-s,-s*.05); c.fill();
+      c.fillStyle = "#a8613a"; [[-.3,-.35],[.25,-.4],[0,-.2]].forEach(([x,y]) => { c.beginPath(); c.ellipse(x*s,y*s,s*.1,s*.05,.5,0,7); c.fill(); });
+    } else if(id === "katli"){
+      c.beginPath(); c.moveTo(0,-s); c.lineTo(s*.8,0); c.lineTo(0,s); c.lineTo(-s*.8,0); c.closePath();
+      c.fillStyle = "#efe2c9"; c.fill(); c.lineWidth = s*.12; c.strokeStyle = "#dfe6ee"; c.stroke();
+    } else if(id === "choco"){
+      c.fillStyle = "#5b3420"; c.beginPath(); c.roundRect ? c.roundRect(-s*.8,-s,s*1.6,s*2,s*.15) : c.rect(-s*.8,-s,s*1.6,s*2); c.fill();
+      c.strokeStyle = "#3a1f11"; c.lineWidth = s*.07;
+      c.beginPath(); c.moveTo(0,-s); c.lineTo(0,s); c.moveTo(-s*.8,-s*.33); c.lineTo(s*.8,-s*.33); c.moveTo(-s*.8,s*.33); c.lineTo(s*.8,s*.33); c.stroke();
+    } else if(id === "icecream"){
+      c.fillStyle = "#d9a35b"; c.beginPath(); c.moveTo(-s*.55,-s*.1); c.lineTo(s*.55,-s*.1); c.lineTo(0,s*1.1); c.closePath(); c.fill();
+      c.strokeStyle = "#b8823f"; c.lineWidth = s*.05; c.beginPath(); c.moveTo(-s*.3,-s*.1); c.lineTo(s*.15,s*.6); c.moveTo(s*.3,-s*.1); c.lineTo(-s*.15,s*.6); c.stroke();
+      c.fillStyle = "#ff9ec4"; c.beginPath(); c.arc(0,-s*.35,s*.6,0,7); c.fill();
+      c.fillStyle = "#e0303a"; c.beginPath(); c.arc(0,-s*.98,s*.16,0,7); c.fill();
+    } else if(id === "rasgulla"){
+      const g = c.createRadialGradient(-s*.3,-s*.3,s*.1,0,0,s); g.addColorStop(0,"#ffffff"); g.addColorStop(1,"#e9e1cf");
+      c.fillStyle = g; c.beginPath(); c.arc(0,0,s,0,7); c.fill();
+      c.fillStyle = "rgba(255,255,255,.9)"; c.beginPath(); c.ellipse(-s*.35,-s*.4,s*.2,s*.09,-.6,0,7); c.fill();
+    } else if(id === "barfi"){
+      c.fillStyle = "#f1e4c6"; c.fillRect(-s*.85,-s*.85,s*1.7,s*1.7);
+      c.fillStyle = "#9ccc65"; c.fillRect(-s*.85,-s*.85,s*1.7,s*.45);
+      c.fillStyle = "#cfd8dc"; c.fillRect(-s*.85,-s*.85,s*1.7,s*.1);
+    }
+  }
+
+  /* ---------- animated sweet for the sweet card ---------- */
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  function shadow(c, s, k){ c.fillStyle = "rgba(0,0,0,.35)"; c.beginPath(); c.ellipse(0, s*1.05, s*0.7*k, s*0.12*k, 0, 0, 7); c.fill(); }
+  function sparkle(c, x, y, r, a){ c.save(); c.globalAlpha = a; c.fillStyle = "#fff6d6"; c.beginPath();
+    c.moveTo(x, y-r); c.lineTo(x+r*.25, y-r*.25); c.lineTo(x+r, y); c.lineTo(x+r*.25, y+r*.25); c.lineTo(x, y+r);
+    c.lineTo(x-r*.25, y+r*.25); c.lineTo(x-r, y); c.lineTo(x-r*.25, y-r*.25); c.closePath(); c.fill(); c.restore(); }
+
+  function animSweet(c, id, t, s){
+    c.lineCap = "round"; c.lineJoin = "round";
+    if(id === "laddoo"){
+      const b = Math.abs(Math.sin(t*3.2)), sq = b < .18 ? (.18-b)/.18 : 0;
+      shadow(c, s, 1 - b*.45);
+      c.save(); c.translate(0, s*.3 - b*s*.95); c.scale(1+sq*.2, 1-sq*.2); c.rotate(t*2.5); drawSweet(c, "laddoo", s*.72); c.restore();
+    } else if(id === "jalebi"){
+      const p = clamp01((t % 3.6)/2.4), maxA = Math.PI*5*p, S = s*.9;
+      let x = 0, y = 0;
+      if(p > 0){
+        c.beginPath();
+        for(let a=0; a<=maxA; a+=0.12){ const r = S*.08 + S*.85*a/(Math.PI*5); x = r*Math.cos(a); y = r*Math.sin(a); a ? c.lineTo(x,y) : c.moveTo(x,y); }
+        c.lineWidth = S*.24; c.strokeStyle = "#f08a14"; c.stroke(); c.lineWidth = S*.08; c.strokeStyle = "#ffcf6b"; c.stroke();
+      }
+      if(p < 1){ // piping cloth above the batter
+        c.fillStyle = "#e8e2d4"; c.beginPath(); c.moveTo(x - S*.18, y - S*.55); c.lineTo(x + S*.18, y - S*.55); c.lineTo(x, y - S*.12); c.closePath(); c.fill();
+      } else {
+        const d = ((t % 3.6) - 2.4)/1.2; // syrup drops after frying
+        for(let k=0;k<3;k++){ const dy = ((d*1.5 + k/3) % 1); c.fillStyle = "rgba(255,190,80," + (1-dy) + ")";
+          c.beginPath(); c.arc((k-1)*S*.4, S*.75 + dy*S*.5, S*.05, 0, 7); c.fill(); }
+        sparkle(c, S*.55, -S*.6, S*.14, Math.abs(Math.sin(t*4)));
+      }
+    } else if(id === "jamun"){
+      const lvl = s*.55;
+      c.fillStyle = "#c8ced9"; c.beginPath(); c.ellipse(0, lvl, s*1.05, s*.28, 0, 0, 7); c.fill();
+      c.fillStyle = "#c06a22"; c.beginPath(); c.ellipse(0, lvl, s*.95, s*.22, 0, 0, 7); c.fill();
+      for(let k=0;k<3;k++){ const r = (t*.6 + k/3) % 1; c.strokeStyle = "rgba(255,210,140," + (1-r)*.7 + ")"; c.lineWidth = s*.03;
+        c.beginPath(); c.ellipse(0, lvl, s*(.3 + r*.6), s*(.07 + r*.13), 0, 0, 7); c.stroke(); }
+      c.save(); c.translate(0, lvl - s*.35 + Math.sin(t*2.2)*s*.12); c.rotate(Math.sin(t*1.3)*.2); drawSweet(c, "jamun", s*.5); c.restore();
+      c.fillStyle = "#c8ced9"; c.beginPath(); c.moveTo(-s*1.05, lvl); c.quadraticCurveTo(0, lvl + s*.9, s*1.05, lvl); c.ellipse(0, lvl, s*1.05, s*.28, 0, 0, Math.PI); c.fill();
+    } else if(id === "peda"){
+      const tt = t % 2.6, land = .55;
+      let y = s*.2, sx = 1, sy = 1;
+      if(tt < land){ const k = tt/land; y = -s*1.6 + k*k*(s*1.8); }
+      else if(tt < land + .25){ const k = (tt-land)/.25; const q = Math.sin(k*Math.PI); sx = 1 + q*.25; sy = 1 - q*.25; }
+      shadow(c, s, tt < land ? .4 + .6*(tt/land) : 1);
+      c.save(); c.translate(0, y); c.scale(sx, sy); drawSweet(c, "peda", s*.72); c.restore();
+      if(tt > land && tt < land + .6){ const a = 1 - (tt-land)/.6; sparkle(c, -s*.75, s*.05, s*.15, a); sparkle(c, s*.75, -s*.05, s*.12, a); }
+    } else if(id === "sheera"){
+      c.save(); c.translate(0, s*.35); drawSweet(c, "sheera", s*.8); c.restore();
+      for(let k=0;k<3;k++){ const ph = (t*.45 + k/3) % 1, x0 = (k-1)*s*.32;
+        c.strokeStyle = "rgba(255,255,255," + (1-ph)*.6 + ")"; c.lineWidth = s*.07; c.beginPath();
+        for(let j=0;j<=10;j++){ const yy = -s*.05 - (j/10)*ph*s*1.1; const xx = x0 + Math.sin(yy/(s*.15) + t*3)*s*.08; j ? c.lineTo(xx,yy) : c.moveTo(xx,yy); }
+        c.stroke(); }
+    } else if(id === "katli"){
+      c.save(); c.rotate(Math.sin(t*1.2)*.18); drawSweet(c, "katli", s*.85);
+      c.beginPath(); c.moveTo(0,-s*.85); c.lineTo(s*.68,0); c.lineTo(0,s*.85); c.lineTo(-s*.68,0); c.closePath(); c.clip();
+      const bx = ((t*.7) % 1.6 - .8) * s*2.6;
+      c.rotate(.6); c.fillStyle = "rgba(255,255,255,.6)"; c.fillRect(bx, -s*2, s*.25, s*4); c.restore();
+      sparkle(c, s*.55, -s*.65, s*.16, Math.max(0, Math.sin(t*3)));
+    } else if(id === "choco"){
+      const open = (Math.sin(t*2) + 1)/2 * s*.16, w = s*.62, h = s*.5;
+      for(let r=0;r<3;r++) for(let col=0;col<2;col++){
+        const x = (col - .5)*(w + open) , y = (r - 1)*(h + open);
+        c.save(); c.translate(x, y); c.fillStyle = "#5b3420"; c.fillRect(-w/2, -h/2, w, h);
+        c.fillStyle = "#71432a"; c.fillRect(-w/2 + s*.06, -h/2 + s*.06, w - s*.12, h - s*.12);
+        c.fillStyle = "rgba(255,255,255,.15)"; c.fillRect(-w/2 + s*.06, -h/2 + s*.06, w - s*.12, s*.05); c.restore(); }
+    } else if(id === "icecream"){
+      const tt = t % 3.4;
+      c.save(); c.translate(0, s*.25);
+      c.fillStyle = "#d9a35b"; c.beginPath(); c.moveTo(-s*.5,-s*.1); c.lineTo(s*.5,-s*.1); c.lineTo(0,s*1.0); c.closePath(); c.fill();
+      c.strokeStyle = "#b8823f"; c.lineWidth = s*.05; c.beginPath(); c.moveTo(-s*.3,-s*.1); c.lineTo(s*.12,s*.55); c.moveTo(s*.3,-s*.1); c.lineTo(-s*.12,s*.55); c.stroke();
+      const fall = clamp01(tt/.6), sy = -s*2.2 + fall*fall*(s*2.2 - s*.42);
+      const wob = tt > .6 ? Math.sin((tt-.6)*18)*Math.exp(-(tt-.6)*3.5) : 0;
+      c.save(); c.translate(0, sy); c.scale(1 + wob*.15, 1 - wob*.15); c.fillStyle = "#ff9ec4"; c.beginPath(); c.arc(0, 0, s*.55, 0, 7); c.fill();
+      c.fillStyle = "#ffc2db"; c.beginPath(); c.ellipse(-s*.18, -s*.2, s*.16, s*.08, -.5, 0, 7); c.fill(); c.restore();
+      if(tt > 1){ const cf = clamp01((tt-1)/.4); c.fillStyle = "#e0303a"; c.beginPath(); c.arc(0, -s*2 + cf*cf*(s*2 - s*.95), s*.15, 0, 7); c.fill(); }
+      c.restore();
+    } else if(id === "rasgulla"){
+      const tt = t % 2.2, jig = Math.sin(tt*12)*Math.exp(-tt*2.2);
+      shadow(c, s, 1);
+      c.save(); c.translate(0, s*.25); c.scale(1 + jig*.18, 1 - jig*.18); drawSweet(c, "rasgulla", s*.75); c.restore();
+      for(let k=0;k<2;k++){ const d = (t*.8 + k/2) % 1; c.fillStyle = "rgba(255,240,200," + (1-d)*.8 + ")"; c.beginPath(); c.arc((k?1:-1)*s*.45, s*.6 + d*s*.4, s*.05, 0, 7); c.fill(); }
+    } else if(id === "barfi"){
+      const tt = t % 3.2;
+      shadow(c, s, 1);
+      for(let i=0;i<4;i++){ const p = clamp01((tt - i*.45)/.35); if(p <= 0) continue;
+        const target = s*.78 - i*s*.38, y = -s*2 + p*p*(target + s*2);
+        c.save(); c.translate(0, y); c.scale(1, .42); drawSweet(c, "barfi", s*.7); c.restore(); }
+    } else {
+      drawSweet(c, id, s*.8);
+    }
+  }
+
+  let sweetLoop = null;
+  function startSweetAnim(id){
+    const cv = $("sweetCv"), c = cv.getContext("2d"), t0 = performance.now();
+    cancelAnimationFrame(sweetLoop);
+    const tick = now => {
+      c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,cv.width,cv.height); c.translate(cv.width/2, cv.height/2);
+      animSweet(c, id, reduce ? 3 : (now - t0)/1000, cv.width*.24);
+      if(!reduce) sweetLoop = requestAnimationFrame(tick);
+    };
+    sweetLoop = requestAnimationFrame(tick);
+  }
+
+  /* sweets fall on their own layer, above the cards */
+  const rainCv = $("rain"), rnx = rainCv.getContext("2d");
+  let rainOn = false;
+  function sizeRain(){ const d = devicePixelRatio || 1; rainCv.width = innerWidth*d; rainCv.height = innerHeight*d; rnx.setTransform(d,0,0,d,0,0); }
+  sizeRain(); addEventListener("resize", sizeRain);
+  function rainFrame(){
+    rnx.clearRect(0,0,innerWidth,innerHeight);
+    for(const f of falling){ f.y += f.vy; f.x += Math.sin((f.y + f.ph)/60)*0.6; f.rot += f.vr;
+      rnx.save(); rnx.translate(f.x, f.y); rnx.rotate(f.rot); drawSweet(rnx, f.id, f.s); rnx.restore(); }
+    falling = falling.filter(f => f.y < innerHeight + 60);
+    if(falling.length){ requestAnimationFrame(rainFrame); } else { rainOn = false; rnx.clearRect(0,0,innerWidth,innerHeight); }
+  }
+  function rainSweets(mainId, n){
+    if(reduce){ $("toast").textContent = "Animations are paused. Tap “▶ Play animations” at the top to see the sweets fall 🍬"; return; }
+    const w = innerWidth, h = innerHeight;
+    for(let i=0;i<n;i++){
+      const id = Math.random() < .6 ? mainId : SWEETS[Math.floor(Math.random()*SWEETS.length)].id;
+      falling.push({id, x:Math.random()*w, y:-30 - Math.random()*h*.5, vy:2 + Math.random()*2.5,
+        rot:Math.random()*6, vr:(Math.random()-.5)*.06, s:14 + Math.random()*14, ph:Math.random()*400});
+    }
+    if(!rainOn){ rainOn = true; requestAnimationFrame(rainFrame); }
+  }
+
+  function skyFrame(){ t += .02; sx.clearRect(0,0,W,H);
+    for(const s of stars){ sx.globalAlpha = .3 + .35*Math.sin(t*2+s.p); sx.fillStyle = "#ffe9c2"; sx.beginPath(); sx.arc(s.x,s.y,s.r,0,7); sx.fill(); }
+    if(fireworks && Math.random() < .035) burst(Math.random()*W, Math.random()*H*.5 + 20);
+    for(const p of sparks){ p.x+=p.vx; p.y+=p.vy; p.vy+=.04; p.vx*=.985; p.life-=.012;
+      sx.globalAlpha = Math.max(p.life,0); sx.fillStyle = p.c; sx.beginPath(); sx.arc(p.x,p.y,1.8,0,7); sx.fill(); }
+    sparks = sparks.filter(p => p.life > 0); sx.globalAlpha = 1;
+    if(!reduce) requestAnimationFrame(skyFrame); }
+  skyFrame();
+
+  /* ---------- helpers ---------- */
+  function show(id){ ["s-form","s-log","s-card"].forEach(s => $(s).hidden = s !== id); scrollTo({top:0, behavior: reduce ? "auto" : "smooth"}); }
+  const clean = s => s.replace(/\s+/g," ").trim();
+  const slug = s => clean(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "everywhere";
+  async function api(path, options){
+    const res = await fetch(API_URL + path, options);
+    const body = await res.json().catch(() => ({}));
+    if(!res.ok) throw new Error(body.error || "Request failed (" + res.status + ")");
+    return body;
+  }
+
+  /* ---------- the rangoli generator (seeded by the name) ---------- */
+  function fnv1a(str){ let h = 0x811c9dc5; for(const ch of str){ h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return h >>> 0; }
+  function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const PALETTE = ["#ffb43a","#ff7a2f","#ff5d8f","#e0479e","#7fe0a6","#5ec8f2","#fff1c1","#b98cff","#ffd166"];
+
+  function buildRangoli(name){
+    const seed = fnv1a(name.toLowerCase());
+    const rnd = mulberry32(seed);
+    const pick = arr => arr[Math.floor(rnd()*arr.length)];
+    const folds = pick([6,8,9,10,12,16]);
+    const pool = PALETTE.slice().sort(() => rnd() - .5);
+    const colours = pool.slice(0, 4);
+    const kinds = ["petals","dots","wave","diamonds","petals","ring"];
+    const layerCount = 5 + Math.floor(rnd()*3);
+    const layers = [];
+    let r = 0.16;
+    for(let i=0;i<layerCount;i++){
+      const kind = i === 0 ? "petals" : pick(kinds);
+      const width = 0.06 + rnd()*0.06;
+      layers.push({kind, r0:r, r1:r+width, colour:colours[i % colours.length], alt:colours[(i+1) % colours.length],
+                   mult: pick([1,1,2]), twist: rnd()*Math.PI/folds});
+      r += width + 0.015;
+      if(r > 0.92) break;
+    }
+    return {seed, folds, colours, layers};
+  }
+
+  function drawLayer(c, L, folds, S){
+    const n = folds * L.mult;
+    c.save();
+    c.rotate(L.twist);
+    for(let i=0;i<n;i++){
+      c.save(); c.rotate(i * 2*Math.PI / n);
+      const r0 = L.r0*S, r1 = L.r1*S, mid = (r0+r1)/2, w = (r1-r0);
+      if(L.kind === "petals"){
+        const spread = Math.PI / n * 0.9 * r1;
+        c.beginPath(); c.moveTo(0, -r0);
+        c.bezierCurveTo(spread*0.9, -r0 - w*0.2, spread*0.5, -r1, 0, -r1);
+        c.bezierCurveTo(-spread*0.5, -r1, -spread*0.9, -r0 - w*0.2, 0, -r0);
+        c.fillStyle = L.colour; c.globalAlpha = .9; c.fill();
+        c.globalAlpha = 1; c.lineWidth = S*0.004; c.strokeStyle = L.alt; c.stroke();
+      } else if(L.kind === "dots"){
+        c.beginPath(); c.arc(0, -mid, w*0.32, 0, 7); c.fillStyle = L.colour; c.fill();
+        c.beginPath(); c.arc(0, -mid, w*0.14, 0, 7); c.fillStyle = L.alt; c.fill();
+      } else if(L.kind === "diamonds"){
+        const hw = Math.min(w*0.45, Math.PI*mid/n*0.8);
+        c.beginPath(); c.moveTo(0,-r0); c.lineTo(hw,-mid); c.lineTo(0,-r1); c.lineTo(-hw,-mid); c.closePath();
+        c.fillStyle = L.colour; c.fill(); c.lineWidth = S*0.003; c.strokeStyle = L.alt; c.stroke();
+      }
+      c.restore();
+    }
+    if(L.kind === "wave"){
+      c.beginPath();
+      for(let a=0;a<=360;a++){ const th = a*Math.PI/180, rr = (L.r0 + (L.r1-L.r0)*(0.5+0.5*Math.sin(th*n)))*S;
+        const x = rr*Math.sin(th), y = -rr*Math.cos(th); a ? c.lineTo(x,y) : c.moveTo(x,y); }
+      c.closePath(); c.lineWidth = S*0.009; c.strokeStyle = L.colour; c.stroke();
+    } else if(L.kind === "ring"){
+      c.beginPath(); c.arc(0,0,(L.r0+L.r1)/2*S,0,7); c.lineWidth = (L.r1-L.r0)*S*0.35; c.strokeStyle = L.colour; c.stroke();
+      c.setLineDash([S*0.01, S*0.014]); c.lineWidth = S*0.006; c.strokeStyle = L.alt; c.stroke(); c.setLineDash([]);
+    }
+    c.restore();
+  }
+
+  function drawDiya(c, S, flick, lit){
+    c.save(); c.translate(0, S*0.035);
+    // glow
+    const g = c.createRadialGradient(0,-S*0.06,0,0,-S*0.06,S*0.16*(lit?1.4:1));
+    g.addColorStop(0,"rgba(255,200,90,.55)"); g.addColorStop(1,"rgba(255,200,90,0)");
+    c.fillStyle = g; c.beginPath(); c.arc(0,-S*0.06,S*0.2,0,7); c.fill();
+    // bowl
+    c.beginPath(); c.moveTo(-S*0.09,0); c.quadraticCurveTo(0,S*0.09,S*0.09,0); c.quadraticCurveTo(S*0.11,-S*0.005,S*0.12,-S*0.02);
+    c.lineTo(-S*0.12,-S*0.02); c.quadraticCurveTo(-S*0.11,-S*0.005,-S*0.09,0); c.closePath();
+    c.fillStyle = "#c2551f"; c.fill(); c.lineWidth = S*0.006; c.strokeStyle = "#ffb43a"; c.stroke();
+    // flame
+    const fh = S*(lit ? 0.11 : 0.08) * flick;
+    c.beginPath(); c.moveTo(0,-S*0.02-fh);
+    c.bezierCurveTo(S*0.03,-S*0.02-fh*0.5, S*0.025,-S*0.02, 0,-S*0.02);
+    c.bezierCurveTo(-S*0.025,-S*0.02, -S*0.03,-S*0.02-fh*0.5, 0,-S*0.02-fh);
+    c.fillStyle = "#ffd166"; c.fill();
+    c.beginPath(); c.ellipse(0,-S*0.035,S*0.008,fh*0.25,0,0,7); c.fillStyle = "#fff6d6"; c.fill();
+    c.restore();
+  }
+
+  const rc = $("rangoli"), rx = rc.getContext("2d");
+  let current = null, shown = 0, lit = false, loop = null, start = 0;
+  function renderRangoli(now){
+    const S = rc.width/2;
+    rx.setTransform(1,0,0,1,0,0); rx.clearRect(0,0,rc.width,rc.height);
+    rx.translate(S,S);
+    // outer chalk circle
+    rx.beginPath(); rx.arc(0,0,S*0.96,0,7); rx.lineWidth = S*0.004; rx.strokeStyle = "rgba(246,236,217,.18)"; rx.stroke();
+    const elapsed = (now - start)/1000;
+    current.layers.forEach((L, i) => {
+      const p = reduce ? 1 : Math.min(1, Math.max(0, elapsed*1.6 - i*0.45));
+      if(p <= 0) return;
+      rx.save(); rx.globalAlpha = p; rx.scale(0.85+0.15*p, 0.85+0.15*p); rx.rotate((1-p)*0.6);
+      drawLayer(rx, L, current.folds, S); rx.restore();
+    });
+    const flick = 1 + 0.08*Math.sin(now/90) + 0.05*Math.sin(now/37);
+    drawDiya(rx, S, reduce ? 1 : flick, lit);
+  }
+  function startRangoli(name){
+    current = buildRangoli(name); lit = false; start = performance.now();
+    cancelAnimationFrame(loop);
+    const tick = now => { renderRangoli(now); if(!reduce) loop = requestAnimationFrame(tick); };
+    loop = requestAnimationFrame(tick);
+    if(reduce) renderRangoli(performance.now());
+    return current;
+  }
+  rc.addEventListener("click", e => {
+    lit = true;
+    const b = rc.getBoundingClientRect();
+    for(let i=0;i<5;i++) setTimeout(() => burst(b.left + b.width/2 + (Math.random()-.5)*b.width*.8, b.top + b.height*0.3 + Math.random()*b.height*.3, 70), i*180);
+    if(reduce) renderRangoli(performance.now());
+  });
+
+  /* ---------- wish.json ---------- */
+  function renderJson(obj){
+    const pre = $("json"); pre.textContent = "";
+    const add = (txt, cls) => { const s = document.createElement("span"); if(cls) s.className = cls; s.textContent = txt; pre.appendChild(s); };
+    add("{\n");
+    const keys = Object.keys(obj);
+    keys.forEach((k, i) => {
+      const v = obj[k];
+      add("  "); add('"' + k + '"', "key"); add(": ");
+      if(typeof v === "string") add('"' + v + '"', "str");
+      else if(typeof v === "number") add(Number.isInteger(v) ? v.toFixed(1) : String(v), "num");
+      else add(String(v), "lit");
+      add(i < keys.length - 1 ? ",\n" : "\n");
+    });
+    add("}");
+  }
+
+  /* ---------- pipeline animation ---------- */
+  const nodeX = [45,135,225,315];
+  function setNode(i, cls){ const n = $("n"+i); n.classList.remove("on","fail"); if(cls) n.classList.add(cls); }
+  async function movePacket(from, to){
+    const p = $("packet"), a = nodeX[from], b = nodeX[to], dur = reduce ? 0 : 520, t0 = performance.now();
+    return new Promise(res => {
+      const step = now => { const k = dur ? Math.min(1,(now-t0)/dur) : 1; const e = k<.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2;
+        p.setAttribute("transform", "translate(" + (a + (b-a)*e) + ",22)"); k < 1 ? requestAnimationFrame(step) : res(); };
+      requestAnimationFrame(step);
+    });
+  }
+
+  /* ---------- main flow ---------- */
+  $("form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const name = clean($("name").value), city = clean($("city").value);
+    if(!name){ $("err").textContent = "Please type your name so we can generate your rangoli."; $("err").hidden = false; $("name").focus(); return; }
+    $("err").hidden = true; $("go").disabled = true;
+    await deploy(name, city);
+    $("go").disabled = false;
+  });
+
+  async function deploy(name, city){
+    show("s-log");
+    const log = $("log"), region = slug(city);
+    log.textContent = "";
+    $("logTitle").textContent = "deploying to " + region + "…";
+    [0,1,2,3].forEach(i => setNode(i));
+    $("packet").setAttribute("transform","translate(45,22)");
+    const add = (txt, cls) => { const s = document.createElement("span"); if(cls) s.className = cls; s.textContent = txt + "\n"; log.appendChild(s); };
+    const seed = fnv1a(name.toLowerCase());
+
+    add('$ aws diwali deploy --user "' + name + '" --region ' + region, "c");
+    setNode(0, "on"); add("→ Serving page from S3 via CloudFront… 200 OK", "m"); await sleep(450);
+    await movePacket(0,1); setNode(1, "on"); add("→ API Gateway: POST /wish received", "m"); await sleep(350);
+    await movePacket(1,2); setNode(2, "on"); add("→ Lambda: hashing name… seed 0x" + seed.toString(16).padStart(8,"0"), "m"); await sleep(350);
+    add("→ Lambda: validating input… passed", "m"); await sleep(300);
+    await movePacket(2,3);
+
+    if(API_URL){
+      try{
+        const r = await api("/wish", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({name, city})});
+        setNode(3, "on"); add("→ DynamoDB: PutItem… 201 Created · id " + String(r.wish_id).slice(0,8), "c");
+      }catch(err){
+        setNode(3, "fail"); add("✖ " + err.message + " (your rangoli is still on its way!)", "r");
+      }
+    } else {
+      setNode(3, "on"); add("→ DynamoDB: demo mode, nothing saved", "m");
+    }
+    await sleep(350);
+    add("✔ Rangoli generated for " + name + " 🪔", "y");
+    await sleep(800);
+    reveal(name, city, region);
+  }
+
+  function reveal(name, city, region){
+    $("who").textContent = name;
+    $("cardBar").textContent = "wishes · " + region + " · live";
+    $("toast").textContent = ""; $("copybox").hidden = true;
+    show("s-card");
+    lastName = name;
+    const R = startRangoli(name);
+    $("mSeed").textContent = "0x" + R.seed.toString(16).padStart(8,"0");
+    $("mSym").textContent = R.folds + "-fold radial";
+    $("mLayers").textContent = R.layers.length + " (" + [...new Set(R.layers.map(l => l.kind))].join(", ") + ")";
+    const pal = $("mPal"); pal.textContent = "";
+    R.colours.forEach(c => { const i = document.createElement("i"); i.style.background = c; pal.appendChild(i); });
+    const sweet = SWEETS[(R.seed >>> 8) % SWEETS.length];
+    currentSweet = sweet.id;
+    $("sweetName").textContent = sweet.name;
+    const gu = document.createElement("span"); gu.textContent = sweet.gu; $("sweetName").appendChild(gu);
+    $("sweetLine").textContent = sweet.line;
+    $("sweetMeta").textContent = "sweetness: 100% · calories: not counted during Diwali";
+    startSweetAnim(sweet.id);
+    renderJson({ to: name, from: "Janvi", festival: "Diwali", region: region, sweet: sweet.name, happiness: 1.0, stress: null, status: "DEPLOYED" });
+    setTimeout(() => rainSweets(sweet.id, 28), 2200);
+    fireworks = true;
+    for(let i=0;i<3;i++) setTimeout(() => burst(Math.random()*W, Math.random()*H*.45 + 30), 1500 + i*300);
+    if(API_URL) loadStats();
+  }
+
+  async function loadStats(){
+    try{
+      const s = await api("/stats");
+      $("total").textContent = s.total_wishes;
+      const box = $("cities"); box.textContent = "";
+      const max = Math.max(1, ...s.top_cities.map(c => c.count));
+      s.top_cities.forEach(c => {
+        const row = document.createElement("div"); row.className = "cityrow";
+        const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = c.city;
+        const tr = document.createElement("span"); tr.className = "track";
+        const fl = document.createElement("span"); fl.className = "fill"; fl.style.width = (c.count/max*100) + "%";
+        tr.appendChild(fl);
+        const n = document.createElement("span"); n.className = "n"; n.textContent = c.count;
+        row.append(nm, tr, n); box.appendChild(row);
+      });
+      $("live").hidden = false;
+    }catch(e){ /* stats are a bonus; the greeting still works without them */ }
+  }
+
+  let currentSweet = "laddoo";
+  $("more").addEventListener("click", () => rainSweets(currentSweet, 30));
+
+  $("again").addEventListener("click", () => { fireworks = false; falling = []; cancelAnimationFrame(sweetLoop); cancelAnimationFrame(loop); $("name").value = ""; $("city").value = ""; show("s-form"); $("name").focus(); });
+
+  $("share").addEventListener("click", () => {
+    const url = location.href.split("#")[0];
+    const text = "Your name can become a rangoli 🪔 I built a little cloud app for Diwali. Open it, type your name and see yours: " + url;
+    const done = () => { $("toast").textContent = "✔ Message copied. Paste it in WhatsApp to send."; };
+    const fallback = () => { const b = $("copybox"); b.hidden = false; b.textContent = text;
+      const r = document.createRange(); r.selectNodeContents(b); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      $("toast").textContent = "Copy this message and share it:"; };
+    try{ navigator.clipboard.writeText(text).then(done, fallback); }catch(e){ fallback(); }
+  });
+})();
+</script>
+</body>
+</html>
