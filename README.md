@@ -60,7 +60,7 @@ diwali-cloud-wishes/
 
 | Method | Route | Body | Response |
 |---|---|---|---|
-| `POST` | `/wish` | `{"name": "Priya", "city": "London"}` | `201 {"message": "Wish deployed", "wish_id": "..."}` |
+| `POST` | `/wish` | `{"name": "Janvi", "city": "London"}` | `201 {"message": "Wish deployed", "wish_id": "..."}` |
 | `GET` | `/stats` | — | `200 {"total_wishes": 12, "top_cities": [...]}` |
 
 `/stats` returns **counts only**. Names are never sent back to the browser.
@@ -79,7 +79,7 @@ Table: `diwali_wishes` · Partition key: `wish_id` (String) · Capacity: on-dema
 | Attribute | Type | Example |
 |---|---|---|
 | `wish_id` | String (UUID) | `3f2a...` |
-| `name` | String | `Priya` |
+| `name` | String | `Janvi` |
 | `city` | String | `London` |
 | `created_at` | String (ISO 8601, UTC) | `2026-11-08T18:42:10+00:00` |
 | `hour_utc` | Number | `18` |
