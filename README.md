@@ -61,9 +61,10 @@ diwali-cloud-wishes/
 | Method | Route | Body | Response |
 |---|---|---|---|
 | `POST` | `/wish` | `{"name": "Janvi", "city": "London"}` | `201 {"message": "Wish deployed", "wish_id": "..."}` |
+| `POST` | `/visit` | — | `204` (counts one page open, no personal data) |
 | `GET` | `/stats` | — | `200 {"total_wishes": 12, "top_cities": [...]}` |
 
-`/stats` returns **counts only**. Names are never sent back to the browser.
+`/stats` returns **counts only** (wishes, page opens, cities, by day and hour). Names are never sent back to the browser.
 
 ### Input validation (in Lambda)
 - Name is required, maximum 40 characters
@@ -84,6 +85,13 @@ Table: `diwali_wishes` · Partition key: `wish_id` (String) · Capacity: on-dema
 | `created_at` | String (ISO 8601, UTC) | `2026-11-08T18:42:10+00:00` |
 | `hour_utc` | Number | `18` |
 
+Table: `diwali_metrics` · Partition key: `metric` (String) · atomic counters updated with `ADD`
+
+| `metric` | `count` |
+|---|---|
+| `visits#total` | `42` |
+| `visits#2026-11-08` | `17` |
+
 ---
 
 ## Data analysis
@@ -97,8 +105,8 @@ The script:
 1. Reads all items from DynamoDB (handles pagination)
 2. Cleans the data (time zone conversion to UK time, city name standardisation)
 3. Prints a summary: total wishes, unique cities, busiest hour
-4. Saves three charts to `analysis/output/`: wishes by city, by hour, and cumulative over time
-5. Exports an **anonymised CSV** (names removed) for sharing
+4. Saves charts to `analysis/output/`: wishes by city, by hour, and page opens vs wishes per day
+5. Exports two **anonymised CSVs** (names removed) for **Tableau / Power BI**: `wishes_anonymised.csv` and `visits_by_day.csv`
 
 ### Results
 

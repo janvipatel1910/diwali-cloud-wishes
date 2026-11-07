@@ -9,6 +9,15 @@
         "dynamodb:Scan"
       ],
       "Resource": "arn:aws:dynamodb:eu-west-2:YOUR_ACCOUNT_ID:table/diwali_wishes"
+    },
+    {
+      "Sid": "CountPageOpensOnly",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:UpdateItem",
+        "dynamodb:Scan"
+      ],
+      "Resource": "arn:aws:dynamodb:eu-west-2:YOUR_ACCOUNT_ID:table/diwali_metrics"
     }
   ]
 }

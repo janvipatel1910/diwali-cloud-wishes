@@ -621,6 +621,13 @@ const API_URL = "https://cgses72oj8.execute-api.eu-west-2.amazonaws.com";
     });
   }
 
+  /* ---------- count one page open per browser session (no personal data) ---------- */
+  (function countVisit(){
+    if(!API_URL) return;
+    try{ if(sessionStorage.getItem("dcw-visit")) return; sessionStorage.setItem("dcw-visit", "1"); }catch(e){}
+    fetch(API_URL + "/visit", {method:"POST", keepalive:true}).catch(() => {});
+  })();
+
   /* ---------- main flow ---------- */
   $("form").addEventListener("submit", async e => {
     e.preventDefault();
