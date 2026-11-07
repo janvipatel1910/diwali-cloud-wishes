@@ -97,6 +97,8 @@ button:disabled{opacity:.6;cursor:wait}
 .cityrow .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
 .big{font-family:var(--f-mono);font-size:1.6rem;font-weight:600;font-variant-numeric:tabular-nums}
 .msg{margin:0;text-align:center;max-width:52ch;align-self:center}
+.couple{margin:6px auto 0;width:min(100%,340px);padding:6px;border-radius:22px;background:linear-gradient(160deg,var(--marigold),var(--flame) 45%,var(--rose));box-shadow:0 0 40px -6px rgba(255,180,58,.55)}
+.couple img{display:block;width:100%;height:auto;border-radius:16px}
 .from{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin:0;text-align:center}
 .toast{font-family:var(--f-mono);font-size:13px;color:var(--ok);min-height:1.2em;margin:0}
 .copybox{font-family:var(--f-mono);font-size:12px;word-break:break-all;color:var(--muted)}
@@ -201,8 +203,11 @@ footer{text-align:center;font-family:var(--f-mono);font-size:11px;color:var(--mu
         <div id="cities"></div>
       </div>
 
+      <figure class="couple">
+        <img src="assets/janvi-harsh-diwali.jpg" alt="Illustration of Janvi and Harsh in traditional clothes, celebrating Diwali among diyas and lanterns" width="576" height="1024" loading="lazy">
+      </figure>
       <p class="msg">May your days shine like diyas, your worries be deleted for good, and your success scale up automatically. Wishing you and your family a very Happy Diwali and a joyful New Year!</p>
-      <p class="from">— with love, Janvi 🪔</p>
+      <p class="from">— with love, Janvi &amp; Harsh 🪔</p>
 
       <div class="row">
         <button type="button" class="primary" id="share">Send to a friend</button>
@@ -678,7 +683,7 @@ const API_URL = "https://cgses72oj8.execute-api.eu-west-2.amazonaws.com";
     $("sweetLine").textContent = sweet.line;
     $("sweetMeta").textContent = "sweetness: 100% · calories: not counted during Diwali";
     startSweetAnim(sweet.id);
-    renderJson({ to: name, from: "Janvi", festival: "Diwali", region: region, sweet: sweet.name, happiness: 1.0, stress: null, status: "DEPLOYED" });
+    renderJson({ to: name, from: "Janvi & Harsh", festival: "Diwali", region: region, sweet: sweet.name, happiness: 1.0, stress: null, status: "DEPLOYED" });
     setTimeout(() => rainSweets(sweet.id, 28), 2200);
     fireworks = true;
     for(let i=0;i<3;i++) setTimeout(() => burst(Math.random()*W, Math.random()*H*.45 + 30), 1500 + i*300);

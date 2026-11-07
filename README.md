@@ -43,7 +43,8 @@ flowchart LR
 ```
 diwali-cloud-wishes/
 ├── frontend/
-│   └── index.html                 # Greeting page (HTML, CSS, JavaScript)
+│   ├── index.html                 # Greeting page (HTML, CSS, JavaScript)
+│   └── assets/                    # Greeting illustration
 ├── backend/
 │   └── lambda_function.py         # Lambda handler: POST /wish, GET /stats
 ├── infra/

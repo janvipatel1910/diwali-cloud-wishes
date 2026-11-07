@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Analysis output (contains personal data)
+analysis/output/
+*.csv
+
+# AWS secrets: never commit these
+.aws/
+*.pem
+.env
+
+# OS
+.DS_Store
