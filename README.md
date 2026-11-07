@@ -10,7 +10,7 @@ A serverless Diwali greeting app on AWS. Friends open a link and type their name
 
 The project combines my two areas of study: **cloud engineering** (the serverless backend on AWS) and **data analytics** (collecting, cleaning and visualising the data).
 
-> Live demo: _add your CloudFront URL here_
+> 🔗 **Live demo:** https://d38q7vq24bkhmm.cloudfront.net
 
 ---
 
